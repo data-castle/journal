@@ -134,7 +134,7 @@ func (c *Config) GetDefaultJournal() (*Journal, error) {
 		return nil, fmt.Errorf("no journals configured")
 	}
 	if c.DefaultJournal == "" {
-		return nil, fmt.Errorf("no default journal set.")
+		return nil, fmt.Errorf("no default journal set")
 	}
 
 	return c.GetJournal(c.DefaultJournal)

@@ -11,7 +11,11 @@ func TestLoadConfig_EmptyFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Fatalf("failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Create empty config file
 	configPath := filepath.Join(tmpDir, "config.yaml")
@@ -41,7 +45,11 @@ func TestLoadConfig_CorruptedJournalsField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Fatalf("failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Create config file with null journals field
 	configPath := filepath.Join(tmpDir, "config.yaml")
@@ -74,7 +82,11 @@ func TestLoadConfig_NonExistentFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Fatalf("failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Use non-existent config path
 	configPath := filepath.Join(tmpDir, "nonexistent", "config.yaml")
@@ -107,7 +119,11 @@ func TestLoadConfig_ValidFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Fatalf("failed to remove temp dir: %v", err)
+		}
+	}()
 
 	// Create valid config file
 	configPath := filepath.Join(tmpDir, "config.yaml")
@@ -160,7 +176,11 @@ func TestConfig_Save(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Fatalf("failed to remove temp dir: %v", err)
+		}
+	}()
 
 	configPath := filepath.Join(tmpDir, "config.yaml")
 
