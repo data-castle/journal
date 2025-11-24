@@ -45,7 +45,6 @@ func LoadConfig() (*Config, error) {
 		return nil, err
 	}
 
-	// If config doesn't exist, return empty config
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return &Config{
 			Journals: make(map[string]*Journal),
@@ -66,7 +65,6 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	// Detect corruption: if file exists and was parsed, but Journals is nil, the file was tampered with
 	if config.Journals == nil {
 		return nil, fmt.Errorf("config file is corrupted: 'journals' field is null")
 	}
@@ -81,7 +79,6 @@ func (c *Config) Save() error {
 		return err
 	}
 
-	// Ensure config directory exists
 	configDir := filepath.Dir(configPath)
 	if err := os.MkdirAll(configDir, 0700); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
