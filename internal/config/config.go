@@ -163,6 +163,7 @@ func (c *Config) RemoveJournal(name string) error {
 	// If this was the default, clear it
 	if c.DefaultJournal == name {
 		c.DefaultJournal = ""
+		return fmt.Errorf("default journal %s was deleted, the default journal is now undefined", name)
 	}
 
 	return nil
