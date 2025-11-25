@@ -501,7 +501,7 @@ func TestConfig_RemoveJournal(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "remove existing journal",
+			name: "remove non-default journal",
 			cfg: &Config{
 				DefaultJournal: "personal",
 				Journals: map[string]*Journal{
@@ -518,10 +518,11 @@ func TestConfig_RemoveJournal(t *testing.T) {
 				DefaultJournal: "personal",
 				Journals: map[string]*Journal{
 					"personal": {Name: "personal", Path: "/personal"},
+					"work":     {Name: "work", Path: "/work"},
 				},
 			},
 			journal: "personal",
-			wantErr: false,
+			wantErr: true,
 		},
 		{
 			name: "remove non-existent journal",
