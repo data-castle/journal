@@ -38,6 +38,13 @@ func getConfigPathDefault() (string, error) {
 	return filepath.Join(homeDir, ".journal", "config.yaml"), nil
 }
 
+// NewConfig creates a new empty configuration
+func NewConfig() *Config {
+	return &Config{
+		Journals: make(map[string]*Journal),
+	}
+}
+
 // LoadConfig loads the configuration file
 func LoadConfig() (*Config, error) {
 	configPath, err := GetConfigPath()
