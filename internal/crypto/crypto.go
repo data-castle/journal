@@ -51,10 +51,15 @@ func (e *Encryptor) EncryptFile(filePath string) error {
 		return fmt.Errorf("failed to load plain file: %w", err)
 	}
 
+	keyGroups, err := e.createKeyGroups()
+	if err != nil {
+		return fmt.Errorf("failed to create key groups: %w", err)
+	}
+
 	tree := sops.Tree{
 		Branches: branches,
 		Metadata: sops.Metadata{
-			KeyGroups: e.createKeyGroups(),
+			KeyGroups: keyGroups,
 			Version:   "3.9.2",
 		},
 	}
