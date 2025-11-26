@@ -170,12 +170,27 @@ type CreationRule struct {
 	Age       string `yaml:"age"`
 }
 
+// ValidateRecipient validates that a recipient is a valid age public key
+func ValidateRecipient(recipient string) error {
+	_, err := age.ParseX25519Recipient(recipient)
+	if err != nil {
+		return fmt.Errorf("invalid age public key: %w", err)
+	}
+	return nil
+}
+
 // CreateSOPSConfig creates or updates a .sops.yaml file with age recipients
 // journalPath: path to journal directory
 // recipients: list of age public keys
 func CreateSOPSConfig(journalPath string, recipients []string) error {
 	if len(recipients) == 0 {
 		return fmt.Errorf("no recipients provided")
+	}
+
+	for _, recipient := range recipients {
+		if err := ValidateRecipient(recipient); err != nil {
+			return fmt.Errorf("recipient %s: %w", recipient, err)
+		}
 	}
 
 	config := SOPSConfig{
@@ -197,7 +212,7 @@ func CreateSOPSConfig(journalPath string, recipients []string) error {
 		return fmt.Errorf("failed to marshal SOPS config: %w", err)
 	}
 
-	if err := os.WriteFile(configPath, data, 0644); err != nil {
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
 		return fmt.Errorf("failed to write .sops.yaml: %w", err)
 	}
 
