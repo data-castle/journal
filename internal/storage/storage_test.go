@@ -213,6 +213,7 @@ func TestStorageLoadIndex_Empty(t *testing.T) {
 	if index == nil {
 		t.Error("expected non-nil index")
 	}
+
 }
 
 func TestStorageListAllEntries(t *testing.T) {
