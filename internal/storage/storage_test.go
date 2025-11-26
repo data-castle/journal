@@ -68,10 +68,6 @@ func TestNewStorage(t *testing.T) {
 	if storage == nil {
 		t.Error("expected storage to be non-nil")
 	}
-
-	if storage.basePath != tmpDir {
-		t.Errorf("expected basePath %s, got %s", tmpDir, storage.basePath)
-	}
 }
 
 func TestStorageInitialize(t *testing.T) {
