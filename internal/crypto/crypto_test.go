@@ -3,6 +3,7 @@ package crypto
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"filippo.io/age"
@@ -45,7 +46,7 @@ func TestNewEncryptor_MissingConfig(t *testing.T) {
 		t.Error("expected error when .sops.yaml is missing")
 	}
 
-	if !contains(err.Error(), "failed to read SOPS config") {
+	if !strings.Contains(err.Error(), "failed to read SOPS config") {
 		t.Errorf("expected 'failed to read SOPS config' error, got: %v", err)
 	}
 }
@@ -75,16 +76,16 @@ func TestCreateSOPSConfig(t *testing.T) {
 
 	content := string(data)
 	for _, recipient := range recipients {
-		if !contains(content, recipient) {
+		if !strings.Contains(content, recipient) {
 			t.Errorf("recipient %s not found in .sops.yaml", recipient)
 		}
 	}
 
-	if !contains(content, "index\\.yaml$") {
+	if !strings.Contains(content, "index\\.yaml$") {
 		t.Error("index.yaml rule not found in .sops.yaml")
 	}
 
-	if !contains(content, "entries/.*\\.yaml$") {
+	if !strings.Contains(content, "entries/.*\\.yaml$") {
 		t.Error("entries rule not found in .sops.yaml")
 	}
 }
@@ -97,7 +98,7 @@ func TestCreateSOPSConfig_NoRecipients(t *testing.T) {
 		t.Error("expected error when creating config with no recipients")
 	}
 
-	if !contains(err.Error(), "no recipients provided") {
+	if !strings.Contains(err.Error(), "no recipients provided") {
 		t.Errorf("expected 'no recipients provided' error, got: %v", err)
 	}
 }
@@ -139,7 +140,7 @@ func TestReadSOPSConfig_MissingFile(t *testing.T) {
 		t.Error("expected error when reading missing .sops.yaml")
 	}
 
-	if !contains(err.Error(), "failed to read .sops.yaml") {
+	if !strings.Contains(err.Error(), "failed to read .sops.yaml") {
 		t.Errorf("expected 'failed to read .sops.yaml' error, got: %v", err)
 	}
 }
@@ -159,7 +160,7 @@ func TestReadSOPSConfig_EmptyCreationRules(t *testing.T) {
 		t.Error("expected error when reading config with no creation rules")
 	}
 
-	if !contains(err.Error(), "no creation rules found") {
+	if !strings.Contains(err.Error(), "no creation rules found") {
 		t.Errorf("expected 'no creation rules found' error, got: %v", err)
 	}
 }
@@ -179,7 +180,7 @@ func TestReadSOPSConfig_NoAgeRecipients(t *testing.T) {
 		t.Error("expected error when reading config with no age recipients")
 	}
 
-	if !contains(err.Error(), "no age recipients found") {
+	if !strings.Contains(err.Error(), "no age recipients found") {
 		t.Errorf("expected 'no age recipients found' error, got: %v", err)
 	}
 }
@@ -239,7 +240,7 @@ func TestAddRecipient_Duplicate(t *testing.T) {
 		t.Error("expected error when adding duplicate recipient")
 	}
 
-	if !contains(err.Error(), "recipient already exists") {
+	if !strings.Contains(err.Error(), "recipient already exists") {
 		t.Errorf("expected 'recipient already exists' error, got: %v", err)
 	}
 }
@@ -295,7 +296,7 @@ func TestRemoveRecipient_NotFound(t *testing.T) {
 		t.Error("expected error when removing non-existent recipient")
 	}
 
-	if !contains(err.Error(), "recipient not found") {
+	if !strings.Contains(err.Error(), "recipient not found") {
 		t.Errorf("expected 'recipient not found' error, got: %v", err)
 	}
 }
@@ -317,7 +318,7 @@ func TestRemoveRecipient_LastRecipient(t *testing.T) {
 		t.Error("expected error when removing last recipient")
 	}
 
-	if !contains(err.Error(), "cannot remove last recipient") {
+	if !strings.Contains(err.Error(), "cannot remove last recipient") {
 		t.Errorf("expected 'cannot remove last recipient' error, got: %v", err)
 	}
 }
@@ -383,11 +384,11 @@ func TestEncryptDecryptYAML(t *testing.T) {
 		t.Fatalf("failed to read encrypted file: %v", err)
 	}
 
-	if !contains(string(encryptedContent), "sops") {
+	if !strings.Contains(string(encryptedContent), "sops") {
 		t.Error("encrypted file does not contain SOPS metadata")
 	}
 
-	if contains(string(encryptedContent), "secret message") {
+	if strings.Contains(string(encryptedContent), "secret message") {
 		t.Error("encrypted file contains plaintext data")
 	}
 
@@ -464,11 +465,11 @@ func TestEncryptFile(t *testing.T) {
 		t.Fatalf("failed to read encrypted file: %v", err)
 	}
 
-	if !contains(string(encryptedContent), "sops") {
+	if !strings.Contains(string(encryptedContent), "sops") {
 		t.Error("encrypted file does not contain SOPS metadata")
 	}
 
-	if contains(string(encryptedContent), "secret data") {
+	if strings.Contains(string(encryptedContent), "secret data") {
 		t.Error("encrypted file contains plaintext data")
 	}
 }
@@ -534,19 +535,4 @@ func TestDecryptFile(t *testing.T) {
 	if string(decryptedContent) != expectedContent {
 		t.Errorf("expected content %q, got %q", expectedContent, string(decryptedContent))
 	}
-}
-
-// Helper functions
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 || indexOf(s, substr) >= 0)
-}
-
-func indexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
 }

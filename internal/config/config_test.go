@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -291,7 +292,7 @@ func TestConfig_AddJournal(t *testing.T) {
 			}
 
 			if tt.wantErr && err != nil && tt.errContains != "" {
-				if !contains(err.Error(), tt.errContains) {
+				if !strings.Contains(err.Error(), tt.errContains) {
 					t.Errorf("AddJournal() error = %v, should contain %v", err, tt.errContains)
 				}
 				return
@@ -365,7 +366,7 @@ func TestConfig_GetJournal_NoJournals(t *testing.T) {
 	if err == nil {
 		t.Error("GetJournal() should error when no journals configured")
 	}
-	if !contains(err.Error(), "no journals configured") {
+	if !strings.Contains(err.Error(), "no journals configured") {
 		t.Errorf("GetJournal() wrong error: %v", err)
 	}
 }
@@ -418,7 +419,7 @@ func TestConfig_GetDefaultJournal(t *testing.T) {
 			}
 
 			if tt.wantErr && err != nil && tt.wantMsg != "" {
-				if !contains(err.Error(), tt.wantMsg) {
+				if !strings.Contains(err.Error(), tt.wantMsg) {
 					t.Errorf("GetDefaultJournal() error = %v, should contain %v", err, tt.wantMsg)
 				}
 				return
@@ -615,19 +616,4 @@ func TestConfig_ListJournals(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Helper function
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		(len(s) > 0 && len(substr) > 0 && findSubstring(s, substr)))
-}
-
-func findSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

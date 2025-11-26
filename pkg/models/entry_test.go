@@ -1,6 +1,7 @@
 package models
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -24,19 +25,19 @@ func TestEntryToYaml(t *testing.T) {
 		t.Error("YAML should not be empty")
 	}
 
-	if !contains(yamlStr, "version: 1") {
+	if !strings.Contains(yamlStr, "version: 1") {
 		t.Error("YAML should contain version: 1")
 	}
 
-	if !contains(yamlStr, "test-id-123") {
+	if !strings.Contains(yamlStr, "test-id-123") {
 		t.Error("YAML should contain entry ID")
 	}
 
-	if !contains(yamlStr, "work") {
+	if !strings.Contains(yamlStr, "work") {
 		t.Error("YAML should contain tags")
 	}
 
-	if !contains(yamlStr, "This is a test entry") {
+	if !strings.Contains(yamlStr, "This is a test entry") {
 		t.Error("YAML should contain content")
 	}
 }
@@ -101,18 +102,4 @@ func TestEntryToMetadata(t *testing.T) {
 	if entry.Version != 1 {
 		t.Error("Entry version should be 1")
 	}
-}
-
-// Helper function
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || containsInner(s, substr)))
-}
-
-func containsInner(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
