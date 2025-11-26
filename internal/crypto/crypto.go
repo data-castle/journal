@@ -138,13 +138,13 @@ func (e *Encryptor) DecryptYAML(filePath string, target any) error {
 }
 
 // createKeyGroups creates SOPS key groups from age recipients
-func (e *Encryptor) createKeyGroups() []sops.KeyGroup {
+func (e *Encryptor) createKeyGroups() ([]sops.KeyGroup, error) {
 	var keyGroup sops.KeyGroup
 
 	for _, recipient := range e.recipients {
 		ageRecipient, err := age.ParseX25519Recipient(recipient)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("invalid age recipient %s: %w", recipient, err)
 		}
 
 		keyGroup = append(keyGroup, &sopsage.MasterKey{
@@ -152,7 +152,11 @@ func (e *Encryptor) createKeyGroups() []sops.KeyGroup {
 		})
 	}
 
-	return []sops.KeyGroup{keyGroup}
+	if len(keyGroup) == 0 {
+		return nil, fmt.Errorf("no valid recipients found")
+	}
+
+	return []sops.KeyGroup{keyGroup}, nil
 }
 
 // SOPSConfig represents the .sops.yaml configuration file
