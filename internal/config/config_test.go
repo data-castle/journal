@@ -24,11 +24,11 @@ func TestLoadConfig_EmptyFile(t *testing.T) {
 	}
 
 	// Override config path for this test
-	origFunc := getConfigPathFunc
-	getConfigPathFunc = func() (string, error) {
+	origFunc := GetConfigPathFunc
+	GetConfigPathFunc = func() (string, error) {
 		return configPath, nil
 	}
-	defer func() { getConfigPathFunc = origFunc }()
+	defer func() { GetConfigPathFunc = origFunc }()
 
 	// Should return error for empty file
 	_, err = LoadConfig()
@@ -61,11 +61,11 @@ journals: null
 	}
 
 	// Override config path for this test
-	origFunc := getConfigPathFunc
-	getConfigPathFunc = func() (string, error) {
+	origFunc := GetConfigPathFunc
+	GetConfigPathFunc = func() (string, error) {
 		return configPath, nil
 	}
-	defer func() { getConfigPathFunc = origFunc }()
+	defer func() { GetConfigPathFunc = origFunc }()
 
 	// Should return error for corrupted journals field
 	_, err = LoadConfig()
@@ -92,11 +92,11 @@ func TestLoadConfig_NonExistentFile(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "nonexistent", "config.yaml")
 
 	// Override config path for this test
-	origFunc := getConfigPathFunc
-	getConfigPathFunc = func() (string, error) {
+	origFunc := GetConfigPathFunc
+	GetConfigPathFunc = func() (string, error) {
 		return configPath, nil
 	}
-	defer func() { getConfigPathFunc = origFunc }()
+	defer func() { GetConfigPathFunc = origFunc }()
 
 	// Should return empty config (no error)
 	cfg, err := LoadConfig()
@@ -141,11 +141,11 @@ journals:
 	}
 
 	// Override config path for this test
-	origFunc := getConfigPathFunc
-	getConfigPathFunc = func() (string, error) {
+	origFunc := GetConfigPathFunc
+	GetConfigPathFunc = func() (string, error) {
 		return configPath, nil
 	}
-	defer func() { getConfigPathFunc = origFunc }()
+	defer func() { GetConfigPathFunc = origFunc }()
 
 	// Should load successfully
 	cfg, err := LoadConfig()
@@ -185,11 +185,11 @@ func TestConfig_Save(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.yaml")
 
 	// Override config path for this test
-	origFunc := getConfigPathFunc
-	getConfigPathFunc = func() (string, error) {
+	origFunc := GetConfigPathFunc
+	GetConfigPathFunc = func() (string, error) {
 		return configPath, nil
 	}
-	defer func() { getConfigPathFunc = origFunc }()
+	defer func() { GetConfigPathFunc = origFunc }()
 
 	cfg := &Config{
 		DefaultJournal: "test",

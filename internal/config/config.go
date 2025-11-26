@@ -20,13 +20,13 @@ type Journal struct {
 	Path string `yaml:"path"`
 }
 
-// getConfigPathFunc is the function used to get the config path
-// It's a variable so tests can override it
-var getConfigPathFunc = getConfigPathDefault
+// GetConfigPathFunc is the function used to get the config path
+// It's exported so tests can override it
+var GetConfigPathFunc = getConfigPathDefault
 
 // GetConfigPath returns the path to the config file
 func GetConfigPath() (string, error) {
-	return getConfigPathFunc()
+	return GetConfigPathFunc()
 }
 
 // getConfigPathDefault is the default implementation
