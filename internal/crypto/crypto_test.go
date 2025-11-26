@@ -12,9 +12,8 @@ import (
 func TestNewEncryptor(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	recipients := []string{
-		"age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs3478hj",
-	}
+	recipients := generateRecipients(1)
+
 	err := CreateSOPSConfig(tmpDir, recipients)
 	if err != nil {
 		t.Fatalf("CreateSOPSConfig failed: %v", err)
@@ -54,10 +53,7 @@ func TestNewEncryptor_MissingConfig(t *testing.T) {
 func TestCreateSOPSConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	recipients := []string{
-		"age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs3478hj",
-		"age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs987654",
-	}
+	recipients := generateRecipients(2)
 
 	err := CreateSOPSConfig(tmpDir, recipients)
 	if err != nil {
@@ -106,10 +102,7 @@ func TestCreateSOPSConfig_NoRecipients(t *testing.T) {
 func TestReadSOPSConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	expectedRecipients := []string{
-		"age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs3478hj",
-		"age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs987654",
-	}
+	expectedRecipients := generateRecipients(2)
 
 	err := CreateSOPSConfig(tmpDir, expectedRecipients)
 	if err != nil {
@@ -188,16 +181,14 @@ func TestReadSOPSConfig_NoAgeRecipients(t *testing.T) {
 func TestAddRecipient(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	initialRecipients := []string{
-		"age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs3478hj",
-	}
+	initialRecipients := generateRecipients(1)
 
 	err := CreateSOPSConfig(tmpDir, initialRecipients)
 	if err != nil {
 		t.Fatalf("CreateSOPSConfig failed: %v", err)
 	}
 
-	newRecipient := "age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs987654"
+	newRecipient := generateRecipients(1)[0]
 
 	err = AddRecipient(tmpDir, newRecipient)
 	if err != nil {
@@ -210,8 +201,8 @@ func TestAddRecipient(t *testing.T) {
 	}
 
 	expectedRecipients := []string{
-		"age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs3478hj",
-		"age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs987654",
+		initialRecipients[0],
+		newRecipient,
 	}
 
 	if len(recipients) != len(expectedRecipients) {
@@ -228,7 +219,8 @@ func TestAddRecipient(t *testing.T) {
 func TestAddRecipient_Duplicate(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	recipient := "age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs3478hj"
+	identity, _ := age.GenerateX25519Identity()
+	recipient := identity.Recipient().String()
 
 	err := CreateSOPSConfig(tmpDir, []string{recipient})
 	if err != nil {
@@ -248,9 +240,11 @@ func TestAddRecipient_Duplicate(t *testing.T) {
 func TestRemoveRecipient(t *testing.T) {
 	tmpDir := t.TempDir()
 
+	identity1, _ := age.GenerateX25519Identity()
+	identity2, _ := age.GenerateX25519Identity()
 	recipients := []string{
-		"age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs3478hj",
-		"age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs987654",
+		identity1.Recipient().String(),
+		identity2.Recipient().String(),
 	}
 
 	err := CreateSOPSConfig(tmpDir, recipients)
@@ -282,9 +276,8 @@ func TestRemoveRecipient(t *testing.T) {
 func TestRemoveRecipient_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	recipients := []string{
-		"age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs3478hj",
-	}
+	identity, _ := age.GenerateX25519Identity()
+	recipients := []string{identity.Recipient().String()}
 
 	err := CreateSOPSConfig(tmpDir, recipients)
 	if err != nil {
@@ -304,9 +297,8 @@ func TestRemoveRecipient_NotFound(t *testing.T) {
 func TestRemoveRecipient_LastRecipient(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	recipients := []string{
-		"age1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqs3478hj",
-	}
+	identity, _ := age.GenerateX25519Identity()
+	recipients := []string{identity.Recipient().String()}
 
 	err := CreateSOPSConfig(tmpDir, recipients)
 	if err != nil {
@@ -535,4 +527,13 @@ func TestDecryptFile(t *testing.T) {
 	if string(decryptedContent) != expectedContent {
 		t.Errorf("expected content %q, got %q", expectedContent, string(decryptedContent))
 	}
+}
+
+func generateRecipients(n int) []string {
+	var recipients []string
+	for range n {
+		identity, _ := age.GenerateX25519Identity()
+		recipients = append(recipients, identity.Recipient().String())
+	}
+	return recipients
 }
