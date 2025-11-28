@@ -278,33 +278,169 @@ func (j *Journal) RebuildIndex() error {
 	return nil
 }
 
-// ReEncrypt re-encrypts all entries and index with updated recipients
-// This is useful when adding/removing recipients in .sops.yaml
+// ReEncrypt re-encrypts all entries and index with current recipients from .sops.yaml
+// Uses transactional approach with automatic rollback on failure
+// This is useful after manually editing .sops.yaml to apply the changes to all entries
 func (j *Journal) ReEncrypt() error {
-	files, err := j.storage.ListAllEntries()
+	recipients, err := crypto.ReadSOPSConfig(j.config.Path)
 	if err != nil {
-		return fmt.Errorf("failed to list entries: %w", err)
+		return fmt.Errorf("failed to read recipients: %w", err)
 	}
 
-	// Re-encrypt each entry by loading and saving
-	for _, relFilePath := range files {
+	// Define wrapper functions for transaction manager
+	listEntriesFunc := func() ([]string, error) {
+		return j.storage.ListAllEntries()
+	}
+
+	reEncryptEntryFunc := func(relFilePath string) error {
 		filename := filepath.Base(relFilePath)
 		id := filename[:len(filename)-len(".yaml")]
 
 		entry, err := j.storage.LoadEntry(id, relFilePath)
 		if err != nil {
-			return fmt.Errorf("failed to load entry %s: %w", relFilePath, err)
+			return fmt.Errorf("failed to load: %w", err)
 		}
 
 		if err := j.storage.SaveEntry(entry); err != nil {
-			return fmt.Errorf("failed to re-encrypt entry %s: %w", relFilePath, err)
+			return fmt.Errorf("failed to save: %w", err)
 		}
+
+		// Verify the entry can be decrypted
+		// Note: We need to create a new encryptor with updated recipients
+		encryptor, err := crypto.NewEncryptor(j.config.Path)
+		if err != nil {
+			return fmt.Errorf("failed to create encryptor for verification: %w", err)
+		}
+
+		entryPath := filepath.Join(j.storage.GetBasePath(), storage.EntriesDir, relFilePath)
+		if err := encryptor.VerifyEncryptedFile(entryPath); err != nil {
+			return fmt.Errorf("verification failed: %w", err)
+		}
+
+		return nil
 	}
 
-	// Re-encrypt index
-	if err := j.storage.SaveIndex(j.index); err != nil {
-		return fmt.Errorf("failed to re-encrypt index: %w", err)
+	reEncryptIndexFunc := func() error {
+		if err := j.storage.SaveIndex(j.index); err != nil {
+			return fmt.Errorf("failed to save: %w", err)
+		}
+
+		// Verify index can be decrypted
+		encryptor, err := crypto.NewEncryptor(j.config.Path)
+		if err != nil {
+			return fmt.Errorf("failed to create encryptor for verification: %w", err)
+		}
+
+		indexPath := filepath.Join(j.storage.GetBasePath(), storage.IndexFileName)
+		if err := encryptor.VerifyEncryptedFile(indexPath); err != nil {
+			return fmt.Errorf("verification failed: %w", err)
+		}
+
+		return nil
 	}
+
+	result, err := crypto.TransactionalReEncrypt(
+		j.config.Path,
+		recipients,
+		listEntriesFunc,
+		reEncryptEntryFunc,
+		reEncryptIndexFunc,
+	)
+
+	if err != nil {
+		return fmt.Errorf("re-encryption failed: %w\nDetails: %s",
+			err, result.FormatErrors())
+	}
+
+	// Re-load encryptor with new recipients
+	newEncryptor, err := crypto.NewEncryptor(j.config.Path)
+	if err != nil {
+		return fmt.Errorf("failed to reload encryptor: %w", err)
+	}
+
+	j.storage = storage.NewStorageWithEncryptor(j.config.Path, newEncryptor)
+
+	return nil
+}
+
+// ReEncryptWithRecipients re-encrypts all entries and index with new recipients
+// Uses transactional approach with automatic rollback on failure
+// Updates .sops.yaml first, then re-encrypts all data with the new recipients
+// This is the method to use when programmatically adding/removing recipients
+func (j *Journal) ReEncryptWithRecipients(newRecipients []string) error {
+	// Define wrapper functions for transaction manager
+	listEntriesFunc := func() ([]string, error) {
+		return j.storage.ListAllEntries()
+	}
+
+	reEncryptEntryFunc := func(relFilePath string) error {
+		filename := filepath.Base(relFilePath)
+		id := filename[:len(filename)-len(".yaml")]
+
+		entry, err := j.storage.LoadEntry(id, relFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to load: %w", err)
+		}
+
+		if err := j.storage.SaveEntry(entry); err != nil {
+			return fmt.Errorf("failed to save: %w", err)
+		}
+
+		// Verify the entry can be decrypted
+		// Note: We need to create a new encryptor with updated recipients
+		encryptor, err := crypto.NewEncryptor(j.config.Path)
+		if err != nil {
+			return fmt.Errorf("failed to create encryptor for verification: %w", err)
+		}
+
+		entryPath := filepath.Join(j.storage.GetBasePath(), storage.EntriesDir, relFilePath)
+		if err := encryptor.VerifyEncryptedFile(entryPath); err != nil {
+			return fmt.Errorf("verification failed: %w", err)
+		}
+
+		return nil
+	}
+
+	reEncryptIndexFunc := func() error {
+		if err := j.storage.SaveIndex(j.index); err != nil {
+			return fmt.Errorf("failed to save: %w", err)
+		}
+
+		// Verify index can be decrypted
+		encryptor, err := crypto.NewEncryptor(j.config.Path)
+		if err != nil {
+			return fmt.Errorf("failed to create encryptor for verification: %w", err)
+		}
+
+		indexPath := filepath.Join(j.storage.GetBasePath(), storage.IndexFileName)
+		if err := encryptor.VerifyEncryptedFile(indexPath); err != nil {
+			return fmt.Errorf("verification failed: %w", err)
+		}
+
+		return nil
+	}
+
+	result, err := crypto.TransactionalReEncrypt(
+		j.config.Path,
+		newRecipients,
+		listEntriesFunc,
+		reEncryptEntryFunc,
+		reEncryptIndexFunc,
+	)
+
+	if err != nil {
+		return fmt.Errorf("re-encryption failed: %w\nDetails: %s",
+			err, result.FormatErrors())
+	}
+
+	// Re-load encryptor with new recipients
+	newEncryptor, err := crypto.NewEncryptor(j.config.Path)
+	if err != nil {
+		return fmt.Errorf("failed to reload encryptor: %w", err)
+	}
+
+	// Update storage with new encryptor
+	j.storage = storage.NewStorageWithEncryptor(j.config.Path, newEncryptor)
 
 	return nil
 }

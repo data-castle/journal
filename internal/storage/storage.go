@@ -34,6 +34,20 @@ func NewStorage(basePath string) (*Storage, error) {
 	}, nil
 }
 
+// NewStorageWithEncryptor creates a storage instance with an existing encryptor
+// Useful for re-encryption scenarios where encryptor needs to be updated
+func NewStorageWithEncryptor(basePath string, encryptor *crypto.Encryptor) *Storage {
+	return &Storage{
+		basePath:  basePath,
+		encryptor: encryptor,
+	}
+}
+
+// GetBasePath returns the base path of the storage
+func (s *Storage) GetBasePath() string {
+	return s.basePath
+}
+
 // Initialize creates the necessary directory structure and .sops.yaml if needed
 func (s *Storage) Initialize() error {
 	entriesPath := filepath.Join(s.basePath, EntriesDir)
@@ -62,7 +76,7 @@ func (s *Storage) SaveEntry(entry models.Entry) error {
 	filename := fmt.Sprintf("%s.yaml", entry.GetID())
 	filePath := filepath.Join(dirPath, filename)
 
-	if err := s.encryptor.EncryptYAML(entry, filePath); err != nil {
+	if err := s.encryptor.EncryptYAMLInMemory(entry, filePath); err != nil {
 		return fmt.Errorf("failed to encrypt and save entry: %w", err)
 	}
 
@@ -101,7 +115,7 @@ func (s *Storage) DeleteEntry(relFilePath string) error {
 func (s *Storage) SaveIndex(index *models.Index) error {
 	indexPath := filepath.Join(s.basePath, IndexFileName)
 
-	if err := s.encryptor.EncryptYAML(index, indexPath); err != nil {
+	if err := s.encryptor.EncryptYAMLInMemory(index, indexPath); err != nil {
 		return fmt.Errorf("failed to encrypt and save index: %w", err)
 	}
 
