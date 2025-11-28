@@ -366,9 +366,9 @@ func TestEncryptDecryptYAML(t *testing.T) {
 		t.Fatalf("failed to create test directory: %v", err)
 	}
 
-	err = enc.EncryptYAML(originalData, testFile)
+	err = enc.EncryptYAMLInMemory(originalData, testFile)
 	if err != nil {
-		t.Fatalf("EncryptYAML failed: %v", err)
+		t.Fatalf("EncryptYAMLInMemory failed: %v", err)
 	}
 
 	encryptedContent, err := os.ReadFile(testFile)
