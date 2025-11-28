@@ -88,18 +88,15 @@ func TestInitializeJournal(t *testing.T) {
 		t.Fatalf("InitializeJournal failed: %v", err)
 	}
 
-	// Verify journal directory was created
 	if _, err := os.Stat(journalPath); os.IsNotExist(err) {
 		t.Error("journal directory was not created")
 	}
 
-	// Verify .sops.yaml was created
 	sopsPath := filepath.Join(journalPath, ".sops.yaml")
 	if _, err := os.Stat(sopsPath); os.IsNotExist(err) {
 		t.Error(".sops.yaml was not created")
 	}
 
-	// Verify index.yaml was created
 	indexPath := filepath.Join(journalPath, "index.yaml")
 	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
 		t.Error("index.yaml was not created")
@@ -127,7 +124,6 @@ func TestJournalAdd(t *testing.T) {
 		t.Errorf("expected 2 tags, got %d", len(tags))
 	}
 
-	// Verify entry was added to index
 	if len(journal.index.Entries) != 1 {
 		t.Errorf("expected 1 entry in index, got %d", len(journal.index.Entries))
 	}
@@ -203,7 +199,6 @@ func TestJournalUpdate(t *testing.T) {
 		t.Errorf("expected 2 tags, got %d", len(tags))
 	}
 
-	// Verify update persisted
 	retrievedEntry, err := journal.Get(entryID)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
