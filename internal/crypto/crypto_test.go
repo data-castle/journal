@@ -528,12 +528,3 @@ func TestDecryptFile(t *testing.T) {
 		t.Errorf("expected content %q, got %q", expectedContent, string(decryptedContent))
 	}
 }
-
-func generateRecipients(n int) []string {
-	var recipients []string
-	for range n {
-		identity, _ := age.GenerateX25519Identity()
-		recipients = append(recipients, identity.Recipient().String())
-	}
-	return recipients
-}
