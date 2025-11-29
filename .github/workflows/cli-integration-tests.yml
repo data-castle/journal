@@ -112,7 +112,7 @@ jobs:
 
       - name: Show specific entry
         run: |
-          ENTRY_ID=$(./journal list --journal personal | grep -oP '(?<=ID: )[a-f0-9-]+' | head -n 1)
+          ENTRY_ID=$(./journal list --journal personal | grep -oP '\] \K[a-f0-9]+' | head -n 1)
           echo "Found entry ID: $ENTRY_ID"
           if [ -n "$ENTRY_ID" ]; then
             ./journal show "$ENTRY_ID" --journal personal
@@ -199,7 +199,7 @@ jobs:
 
       - name: Delete entry
         run: |
-          ENTRY_ID=$(./journal list --journal personal | grep -oP '(?<=ID: )[a-f0-9-]+' | head -n 1)
+          ENTRY_ID=$(./journal list --journal personal | grep -oP '\] \K[a-f0-9]+' | head -n 1)
           echo "Deleting entry ID: $ENTRY_ID"
           if [ -n "$ENTRY_ID" ]; then
             ./journal delete "$ENTRY_ID" --journal personal
