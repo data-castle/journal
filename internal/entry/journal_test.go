@@ -439,3 +439,256 @@ func TestJournalReEncrypt(t *testing.T) {
 		t.Errorf("expected content 'Entry 1', got '%s'", retrievedEntry.GetContent())
 	}
 }
+
+// Tests for prefix matching functionality
+
+func TestGetWithPrefixMatching(t *testing.T) {
+	journal, _ := setupTestJournal(t)
+
+	entry := mustAddEntry(t, journal, "Test entry", []string{"tag1"})
+	fullID := entry.GetID()
+
+	tests := []struct {
+		name      string
+		id        string
+		shouldErr bool
+		errMsg    string
+	}{
+		{
+			name:      "Full ID",
+			id:        fullID,
+			shouldErr: false,
+		},
+		{
+			name:      "8 character prefix",
+			id:        fullID[:8],
+			shouldErr: false,
+		},
+		{
+			name:      "12 character prefix",
+			id:        fullID[:12],
+			shouldErr: false,
+		},
+		{
+			name:      "16 character prefix",
+			id:        fullID[:16],
+			shouldErr: false,
+		},
+		{
+			name:      "Less than 8 characters",
+			id:        fullID[:7],
+			shouldErr: true,
+			errMsg:    "entry ID must be at least 8 characters",
+		},
+		{
+			name:      "Non-existent prefix",
+			id:        "ffffffff",
+			shouldErr: true,
+			errMsg:    "entry not found",
+		},
+		{
+			name:      "Empty string",
+			id:        "",
+			shouldErr: true,
+			errMsg:    "entry ID must be at least 8 characters",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			retrieved, err := journal.Get(tt.id)
+
+			if tt.shouldErr {
+				if err == nil {
+					t.Errorf("Expected error but got nil")
+					return
+				}
+				if tt.errMsg != "" && err.Error() != tt.errMsg {
+					if !contains(err.Error(), tt.errMsg) {
+						t.Errorf("Expected error message containing %q, got %q", tt.errMsg, err.Error())
+					}
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if retrieved.GetID() != fullID {
+				t.Errorf("Expected ID %s, got %s", fullID, retrieved.GetID())
+			}
+
+			if retrieved.GetContent() != "Test entry" {
+				t.Errorf("Expected content 'Test entry', got %q", retrieved.GetContent())
+			}
+		})
+	}
+}
+
+func TestDeleteWithPrefixMatching(t *testing.T) {
+	journal, _ := setupTestJournal(t)
+
+	entry1 := mustAddEntry(t, journal, "Entry to delete", []string{})
+	fullID1 := entry1.GetID()
+	shortID1 := fullID1[:8]
+
+	entry2 := mustAddEntry(t, journal, "Entry to keep", []string{})
+	fullID2 := entry2.GetID()
+
+	tests := []struct {
+		name      string
+		id        string
+		shouldErr bool
+		errMsg    string
+	}{
+		{
+			name:      "Delete with 8 char prefix",
+			id:        shortID1,
+			shouldErr: false,
+		},
+		{
+			name:      "Delete with full ID",
+			id:        fullID2,
+			shouldErr: false,
+		},
+		{
+			name:      "Delete with short ID",
+			id:        "1234567",
+			shouldErr: true,
+			errMsg:    "entry ID must be at least 8 characters",
+		},
+		{
+			name:      "Delete non-existent",
+			id:        "ffffffff",
+			shouldErr: true,
+			errMsg:    "entry not found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := journal.Delete(tt.id)
+
+			if tt.shouldErr {
+				if err == nil {
+					t.Errorf("Expected error but got nil")
+					return
+				}
+				if tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+					t.Errorf("Expected error message containing %q, got %q", tt.errMsg, err.Error())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+
+	// Verify entries were actually deleted
+	if _, err := journal.Get(fullID1); err == nil {
+		t.Error("Entry 1 should have been deleted")
+	}
+
+	if _, err := journal.Get(fullID2); err == nil {
+		t.Error("Entry 2 should have been deleted")
+	}
+}
+
+func TestPrefixMatchingIntegration(t *testing.T) {
+	journal, _ := setupTestJournal(t)
+
+	// Add multiple entries
+	entries := make([]models.Entry, 3)
+	for i := 0; i < 3; i++ {
+		entries[i] = mustAddEntry(t, journal, "Entry content", []string{})
+		time.Sleep(time.Millisecond) // Ensure different UUIDs
+	}
+
+	t.Run("Get each entry by prefix", func(t *testing.T) {
+		for i, entry := range entries {
+			shortID := entry.GetID()[:8]
+			retrieved, err := journal.Get(shortID)
+			if err != nil {
+				t.Errorf("Entry %d: Failed to get by prefix: %v", i, err)
+				continue
+			}
+			if retrieved.GetID() != entry.GetID() {
+				t.Errorf("Entry %d: Expected ID %s, got %s", i, entry.GetID(), retrieved.GetID())
+			}
+		}
+	})
+
+	t.Run("Delete by prefix", func(t *testing.T) {
+		shortID := entries[0].GetID()[:8]
+		if err := journal.Delete(shortID); err != nil {
+			t.Fatalf("Failed to delete by prefix: %v", err)
+		}
+
+		// Verify deleted
+		if _, err := journal.Get(entries[0].GetID()); err == nil {
+			t.Error("Entry should have been deleted")
+		}
+
+		// Verify others still exist
+		for i := 1; i < len(entries); i++ {
+			if _, err := journal.Get(entries[i].GetID()); err != nil {
+				t.Errorf("Entry %d should still exist: %v", i, err)
+			}
+		}
+	})
+}
+
+func TestPrefixMatchingEdgeCases(t *testing.T) {
+	journal, _ := setupTestJournal(t)
+
+	t.Run("Empty journal", func(t *testing.T) {
+		if _, err := journal.Get("12345678"); err == nil {
+			t.Error("Expected error for empty journal")
+		}
+
+		if err := journal.Delete("12345678"); err == nil {
+			t.Error("Expected error for empty journal")
+		}
+	})
+
+	entry := mustAddEntry(t, journal, "Test", []string{})
+
+	t.Run("Exact 8 character boundary", func(t *testing.T) {
+		id8 := entry.GetID()[:8]
+		retrieved, err := journal.Get(id8)
+		if err != nil {
+			t.Fatalf("Failed with 8 chars: %v", err)
+		}
+		if retrieved.GetID() != entry.GetID() {
+			t.Error("Wrong entry retrieved")
+		}
+	})
+
+	t.Run("7 characters fails", func(t *testing.T) {
+		id7 := entry.GetID()[:7]
+		if _, err := journal.Get(id7); err == nil {
+			t.Error("Expected error with 7 characters")
+		}
+	})
+}
+
+// Helper function to check if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || s[len(s)/2-len(substr)/2:len(s)/2+len(substr)/2+len(substr)%2] == substr)
+}
+
+func init() {
+	// Simple implementation - just check if substr is in s
+	contains = func(s, substr string) bool {
+		for i := 0; i <= len(s)-len(substr); i++ {
+			if s[i:i+len(substr)] == substr {
+				return true
+			}
+		}
+		return false
+	}
+}

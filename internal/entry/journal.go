@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/data-castle/journal/internal/config"
@@ -96,18 +97,51 @@ func (j *Journal) Add(content string, tags []string) (models.Entry, error) {
 	return entry, nil
 }
 
-// Get retrieves a single entry by ID
-func (j *Journal) Get(id string) (models.Entry, error) {
-	meta, exists := j.index.GetMetadata(id)
-	if !exists {
-		return nil, fmt.Errorf("entry not found: %s", id)
+// resolveEntryID resolves a partial or full entry ID to the complete ID
+// Supports prefix matching with a minimum of 8 characters
+// Returns the full ID if found, or an error if not found or ambiguous
+func (j *Journal) resolveEntryID(id string) (string, error) {
+	// Require at least 8 characters for prefix matching
+	if len(id) < 8 {
+		return "", fmt.Errorf("entry ID must be at least 8 characters")
 	}
 
-	entry, err := j.storage.LoadEntry(id, meta.FilePath)
+	// First try exact match
+	if _, exists := j.index.GetMetadata(id); exists {
+		return id, nil
+	}
+
+	// Try prefix match
+	var matches []string
+	for fullID := range j.index.Entries {
+		if strings.HasPrefix(fullID, id) {
+			matches = append(matches, fullID)
+		}
+	}
+
+	if len(matches) == 0 {
+		return "", fmt.Errorf("entry not found: %s", id)
+	}
+
+	if len(matches) > 1 {
+		return "", fmt.Errorf("ambiguous ID: %s matches %d entries", id, len(matches))
+	}
+
+	return matches[0], nil
+}
+
+// Get retrieves a single entry by ID (supports prefix matching with min 8 chars)
+func (j *Journal) Get(id string) (models.Entry, error) {
+	fullID, err := j.resolveEntryID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	meta := j.index.Entries[fullID]
+	entry, err := j.storage.LoadEntry(fullID, meta.FilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load entry: %w", err)
 	}
-
 	return entry, nil
 }
 
@@ -189,18 +223,19 @@ func (j *Journal) ListAll() []models.Metadata {
 	return metas
 }
 
-// Delete removes an entry
+// Delete removes an entry (supports prefix matching with min 8 chars)
 func (j *Journal) Delete(id string) error {
-	meta, exists := j.index.GetMetadata(id)
-	if !exists {
-		return fmt.Errorf("entry not found: %s", id)
+	fullID, err := j.resolveEntryID(id)
+	if err != nil {
+		return err
 	}
 
+	meta := j.index.Entries[fullID]
 	if err := j.storage.DeleteEntry(meta.FilePath); err != nil {
 		return fmt.Errorf("failed to delete entry: %w", err)
 	}
 
-	j.index.Remove(id)
+	j.index.Remove(fullID)
 
 	if err := j.storage.SaveIndex(j.index); err != nil {
 		return fmt.Errorf("failed to save index: %w", err)
