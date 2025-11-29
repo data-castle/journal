@@ -1,0 +1,239 @@
+name: CLI Integration Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  cli-integration-test:
+    name: CLI Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Install SOPS
+        run: |
+          SOPS_VERSION="3.9.3"
+          wget -q "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64"
+          sudo mv sops-v${SOPS_VERSION}.linux.amd64 /usr/local/bin/sops
+          sudo chmod +x /usr/local/bin/sops
+          sops --version
+
+      - name: Install age
+        run: |
+          AGE_VERSION="1.2.1"
+          wget -q "https://github.com/FiloSottile/age/releases/download/v${AGE_VERSION}/age-v${AGE_VERSION}-linux-amd64.tar.gz"
+          tar xzf age-v${AGE_VERSION}-linux-amd64.tar.gz
+          sudo mv age/age /usr/local/bin/
+          sudo mv age/age-keygen /usr/local/bin/
+          age --version
+
+      - name: Build journal CLI
+        run: |
+          go build -o journal ./cmd/journal
+          chmod +x journal
+          ./journal version
+
+      - name: Generate age keys
+        run: |
+          mkdir -p ~/.config/sops/age
+          age-keygen -o ~/.config/sops/age/keys.txt
+          age-keygen -o ~/.config/sops/age/recipient2.txt
+          age-keygen -o ~/.config/sops/age/recipient3.txt
+          chmod 600 ~/.config/sops/age/*.txt
+          echo "SOPS_AGE_KEY_FILE=$HOME/.config/sops/age/keys.txt" >> $GITHUB_ENV
+          PRIMARY_PUBLIC_KEY=$(age-keygen -y ~/.config/sops/age/keys.txt)
+          RECIPIENT2_PUBLIC_KEY=$(age-keygen -y ~/.config/sops/age/recipient2.txt)
+          RECIPIENT3_PUBLIC_KEY=$(age-keygen -y ~/.config/sops/age/recipient3.txt)
+          echo "PRIMARY_PUBLIC_KEY=${PRIMARY_PUBLIC_KEY}" >> $GITHUB_ENV
+          echo "RECIPIENT2_PUBLIC_KEY=${RECIPIENT2_PUBLIC_KEY}" >> $GITHUB_ENV
+          echo "RECIPIENT3_PUBLIC_KEY=${RECIPIENT3_PUBLIC_KEY}" >> $GITHUB_ENV
+          echo "Age keys generated"
+
+      - name: Initialize personal journal
+        run: |
+          ./journal init --name personal --path /tmp/personal-journal --recipients "$PRIMARY_PUBLIC_KEY"
+          echo "[PASS] Personal journal initialized"
+          test -d /tmp/personal-journal
+          test -f /tmp/personal-journal/.sops.yaml
+          test -d /tmp/personal-journal/entries
+          echo "[PASS] Journal directory structure verified"
+
+      - name: Add entries with and without tags
+        run: |
+          ./journal add "My first journal entry!" --journal personal
+          echo "[PASS] Added first entry"
+          ./journal add "Today I learned about GitHub Actions" -t tech,learning --journal personal
+          echo "[PASS] Added entry with tags"
+          ./journal add "Meeting notes from team sync" -t work,meeting --journal personal
+          echo "[PASS] Added entry with multiple tags"
+          ./journal add "Quick thought about the weekend" --journal personal
+          echo "[PASS] Added another simple entry"
+
+      - name: List entries
+        run: |
+          echo "Listing all entries:"
+          ./journal list --journal personal
+          echo "[PASS] List command executed successfully"
+          echo "Listing with limit:"
+          ./journal list --limit 2 --journal personal
+          echo "[PASS] List with limit executed successfully"
+
+      - name: Search by tag
+        run: |
+          echo "Search by tag 'tech':"
+          ./journal search --tag tech --journal personal
+          echo "[PASS] Search by tag executed"
+          echo "Search by tag 'work':"
+          ./journal search --tag work --journal personal
+          echo "[PASS] Search by work tag executed"
+
+      - name: Search by date
+        run: |
+          echo "Search by date (today):"
+          ./journal search --on $(date +%Y-%m-%d) --journal personal
+          echo "[PASS] Search by date executed"
+
+      - name: Search by date range
+        run: |
+          YESTERDAY=$(date -d "yesterday" +%Y-%m-%d)
+          TOMORROW=$(date -d "tomorrow" +%Y-%m-%d)
+          echo "Search from yesterday to tomorrow:"
+          ./journal search --from "$YESTERDAY" --to "$TOMORROW" --journal personal
+          echo "[PASS] Date range search executed"
+
+      - name: Show specific entry
+        run: |
+          ENTRY_ID=$(./journal list --journal personal | grep -oP '(?<=ID: )[a-f0-9-]+' | head -n 1)
+          echo "Found entry ID: $ENTRY_ID"
+          if [ -n "$ENTRY_ID" ]; then
+            ./journal show "$ENTRY_ID" --journal personal
+            echo "[PASS] Show entry executed successfully"
+          else
+            echo "[WARN] No entry ID found to show"
+            exit 1
+          fi
+
+      - name: Initialize work journal
+        run: |
+          ./journal init --name work --path /tmp/work-journal --recipients "$PRIMARY_PUBLIC_KEY"
+          echo "[PASS] Work journal initialized"
+          test -d /tmp/work-journal
+          test -f /tmp/work-journal/.sops.yaml
+          echo "[PASS] Work journal structure verified"
+
+      - name: List all journals
+        run: |
+          ./journal list-journals
+          echo "[PASS] List journals command executed"
+
+      - name: Set default journal
+        run: |
+          ./journal set-default personal
+          echo "[PASS] Set personal as default journal"
+          ./journal add "Testing default journal functionality"
+          echo "[PASS] Added entry to default journal"
+
+      - name: Add entries to work journal
+        run: |
+          ./journal add "Work project kickoff" -t work,project --journal work
+          ./journal add "Performance review notes" -t work,hr --journal work
+          echo "[PASS] Added entries to work journal"
+          ./journal list --journal work
+          echo "[PASS] Listed work journal entries"
+
+      - name: Initialize multi-recipient journal
+        run: |
+          ./journal init --name team --path /tmp/team-journal --recipients "$PRIMARY_PUBLIC_KEY,$RECIPIENT2_PUBLIC_KEY"
+          echo "[PASS] Team journal initialized with 2 recipients"
+          grep -q "$PRIMARY_PUBLIC_KEY" /tmp/team-journal/.sops.yaml
+          grep -q "$RECIPIENT2_PUBLIC_KEY" /tmp/team-journal/.sops.yaml
+          echo "[PASS] Both recipients found in .sops.yaml"
+
+      - name: Add recipient to existing journal
+        run: |
+          ./journal add-recipient --name team "$RECIPIENT3_PUBLIC_KEY"
+          echo "[PASS] Added third recipient to team journal"
+          grep -q "$PRIMARY_PUBLIC_KEY" /tmp/team-journal/.sops.yaml
+          grep -q "$RECIPIENT2_PUBLIC_KEY" /tmp/team-journal/.sops.yaml
+          grep -q "$RECIPIENT3_PUBLIC_KEY" /tmp/team-journal/.sops.yaml
+          echo "[PASS] All three recipients verified in .sops.yaml"
+
+      - name: Add entries to team journal
+        run: |
+          ./journal add "Team standup notes" -t team,standup --journal team
+          ./journal add "Sprint planning session" -t team,planning --journal team
+          echo "[PASS] Added entries to team journal"
+
+      - name: Re-encrypt after adding recipient
+        run: |
+          ./journal re-encrypt --name team
+          echo "[PASS] Re-encrypted team journal"
+          ./journal list --journal team
+          echo "[PASS] Verified entries readable after re-encryption"
+
+      - name: Remove recipient
+        run: |
+          ./journal remove-recipient --name team "$RECIPIENT3_PUBLIC_KEY"
+          echo "[PASS] Removed recipient 3 from team journal"
+          if grep -q "$RECIPIENT3_PUBLIC_KEY" /tmp/team-journal/.sops.yaml; then
+            echo "[FAIL] Recipient 3 still found in .sops.yaml"
+            exit 1
+          fi
+          echo "[PASS] Recipient 3 removed from .sops.yaml"
+
+      - name: Re-encrypt after removing recipient
+        run: |
+          ./journal re-encrypt --name team
+          echo "[PASS] Re-encrypted team journal after removing recipient"
+          ./journal list --journal team
+          echo "[PASS] Verified entries readable after re-encryption"
+
+      - name: Delete entry
+        run: |
+          ENTRY_ID=$(./journal list --journal personal | grep -oP '(?<=ID: )[a-f0-9-]+' | head -n 1)
+          echo "Deleting entry ID: $ENTRY_ID"
+          if [ -n "$ENTRY_ID" ]; then
+            ./journal delete "$ENTRY_ID" --journal personal
+            echo "[PASS] Deleted entry successfully"
+          else
+            echo "[WARN] No entry ID found to delete"
+            exit 1
+          fi
+
+      - name: Rebuild index
+        run: |
+          ./journal rebuild --journal personal
+          echo "[PASS] Rebuilt index for personal journal"
+          ./journal list --journal personal
+          echo "[PASS] Verified entries after index rebuild"
+
+      - name: Verify encrypted storage
+        run: |
+          echo "Checking that files are encrypted:"
+          if file /tmp/personal-journal/index.yaml | grep -q "ASCII text"; then
+            echo "[WARN] Index file appears to be plaintext (checking for SOPS metadata)"
+            if grep -q "sops:" /tmp/personal-journal/index.yaml; then
+              echo "[PASS] Index contains SOPS metadata (encrypted)"
+            else
+              echo "[FAIL] Index does not contain SOPS metadata"
+              exit 1
+            fi
+          fi
+          ENTRY_FILE=$(find /tmp/personal-journal/entries -name "*.yaml" | head -n 1)
+          if [ -n "$ENTRY_FILE" ]; then
+            if grep -q "sops:" "$ENTRY_FILE"; then
+              echo "[PASS] Entry files contain SOPS metadata (encrypted)"
+            else
+              echo "[FAIL] Entry file does not contain SOPS metadata"
+              exit 1
+            fi
+          fi
