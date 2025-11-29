@@ -115,7 +115,7 @@ jobs:
           ENTRY_ID=$(./journal list --journal personal | grep -oP '\] \K[a-f0-9]+' | head -n 1)
           echo "Found entry ID: $ENTRY_ID"
           if [ -n "$ENTRY_ID" ]; then
-            ./journal show "$ENTRY_ID" --journal personal
+            ./journal show --journal personal "$ENTRY_ID"
             echo "[PASS] Show entry executed successfully"
           else
             echo "[WARN] No entry ID found to show"
@@ -202,7 +202,7 @@ jobs:
           ENTRY_ID=$(./journal list --journal personal | grep -oP '\] \K[a-f0-9]+' | head -n 1)
           echo "Deleting entry ID: $ENTRY_ID"
           if [ -n "$ENTRY_ID" ]; then
-            ./journal delete "$ENTRY_ID" --journal personal
+            ./journal delete --journal personal "$ENTRY_ID"
             echo "[PASS] Deleted entry successfully"
           else
             echo "[WARN] No entry ID found to delete"
