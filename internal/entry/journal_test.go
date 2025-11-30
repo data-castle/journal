@@ -3,6 +3,7 @@ package entry
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -504,7 +505,7 @@ func TestGetWithPrefixMatching(t *testing.T) {
 					return
 				}
 				if tt.errMsg != "" && err.Error() != tt.errMsg {
-					if !contains(err.Error(), tt.errMsg) {
+					if !strings.Contains(err.Error(), tt.errMsg) {
 						t.Errorf("Expected error message containing %q, got %q", tt.errMsg, err.Error())
 					}
 				}
@@ -576,7 +577,7 @@ func TestDeleteWithPrefixMatching(t *testing.T) {
 					t.Errorf("Expected error but got nil")
 					return
 				}
-				if tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("Expected error message containing %q, got %q", tt.errMsg, err.Error())
 				}
 				return
@@ -674,21 +675,4 @@ func TestPrefixMatchingEdgeCases(t *testing.T) {
 			t.Error("Expected error with 7 characters")
 		}
 	})
-}
-
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || s[len(s)/2-len(substr)/2:len(s)/2+len(substr)/2+len(substr)%2] == substr)
-}
-
-func init() {
-	// Simple implementation - just check if substr is in s
-	contains = func(s, substr string) bool {
-		for i := 0; i <= len(s)-len(substr); i++ {
-			if s[i:i+len(substr)] == substr {
-				return true
-			}
-		}
-		return false
-	}
 }
